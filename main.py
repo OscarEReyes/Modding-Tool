@@ -52,6 +52,16 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 			self.retentionEdit, self.randomEdit, self.categoryEdit, 
 			self.houseEdit
 		]
+		self.tagDict = {
+			'Unlock':self.cUnlockEdit,
+			'TimeScale':self.cTimeScaleEdit,
+			'Popularity':self.cPopularityEdit,
+			'Retention':self.cRetentionEdit,
+			'Iterative':self.cIterativeEdit,
+			'Description':self.cDescriptionEdit,
+			'NameGenerator':self.cNameGeneratorEdit
+			}
+		
 		mainMenu = self.define_menubar()
 		fileMenu = self.add_menu_to_menubar(mainMenu, '&File')
 		self.define_action(mainMenu,fileMenu,"&Close","Ctrl+Q",self.close)
@@ -76,8 +86,9 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 		self.add_actions_to_menubar(file_menu,action)
 
 	def close(self):
-		choice = QtGui.QMessageBox.question(self, 'Warning',"You are about to exit. All unsaved progress will be lost. Do you want to continue?"
-											,QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
+		message = """You are about to exit. All unsaved progress will be lost. Do you wish to continue?"""
+		choice = QtGui.QMessageBox.question(self, "Warning",message,
+				 QtGui.QMessageBox.Yes | QtGui.QMessageBox.No)
 		if choice == QtGui.QMessageBox.Yes:																
 			sys.exit()			
 
@@ -173,8 +184,8 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 			so the user can see what it is and change it if desired."""
 		try:
 			tags_to_look_for = [
-				'Name', 'Description', 'Unlock','Population', 'Random','Category',
-				'InHouse', 'OSSpecific', 'Iterative','Retention', 'NameGenerator'
+				'Name','Description','Unlock','Population','Random','Category',
+				'InHouse','OSSpecific','Iterative','Retention','NameGenerator'
 				]
 
 			tag_text_list = []
@@ -265,17 +276,7 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 		""" This function will save any changes made to the category
 			that was edited"""
 		try:	
-			tag_dict = {
-				'Unlock':self.cUnlockEdit,
-				'TimeScale':self.cTimeScaleEdit,
-				'Popularity':self.cPopularityEdit,
-				'Retention':self.cRetentionEdit,
-				'Iterative':self.cIterativeEdit,
-				'Description':self.cDescriptionEdit,
-				'NameGenerator':self.cNameGeneratorEdit
-				}
-
-			for tag,field in tag_dict.items():
+			for tag,field in self.tagDict.items():
 				self.category.find(tag).text = field.text()
 		except:
 			self.statusBar().showMessage('An error occured.',1500)
@@ -303,18 +304,7 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 		try:
 			index = self.get_category_index(name)
 			self.category = self.categories[index]
-
-			tag_dict = {
-				'Unlock':self.cUnlockEdit,
-				'TimeScale':self.cTimeScaleEdit,
-				'Popularity':self.cPopularityEdit,
-				'Retention':self.cRetentionEdit,
-				'Iterative':self.cIterativeEdit,
-				'Description':self.cDescriptionEdit,
-				'NameGenerator':self.cNameGeneratorEdit
-				}
-
-			for tag,field in tag_dict.items():
+			for tag,field in self.tagDict.items():
 				field.setText(self.category.find(tag).text)
 		except:
 			self.statusBar().showMessage('An error occured.',1500)
@@ -338,12 +328,12 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 			feature = self.features[self.feature_index]
 
 			tag_dict = {
-				self.stabilityEdit:'Stability', self.innovationEdit:'Innovation',
-				self.descEdit:'Description', self.usabilityEdit:'Usability',
+				self.stabilityEdit:'Stability',self.usabilityEdit:'Usability',
+				self.descEdit:'Description', self.innovationEdit:'Innovation',
 				self.devtimeEdit:'DevTime', self.codeartEdit:'CodeArt',
 				self.serverEdit:'Server', self.unlockEdit:'Unlock'
-
 				}
+				
 			for field,tag in tag_dict.items():
 				field.setText(feature.find(tag).text)
 
