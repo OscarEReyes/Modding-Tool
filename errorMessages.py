@@ -19,4 +19,5 @@ def showUnexpectedError(self):
 	NFmesgBox = QtGui.QMessageBox.warning(self, 'Warning',"An Unexpected Error Has Occured", QtGui.QMessageBox.Ok)
 def showNoSoftwareNoFeatureError(self):
 	NFmesgBox = QtGui.QMessageBox.warning(self, 'Warning',"Please Do Not leave the Software or Feature Field Blank", QtGui.QMessageBox.Ok)
-	
+def show_name_taken(self):
+	NFmesgBox = QtGui.QMessageBox.warning(self, 'Error',"This feature already exists", QtGui.QMessageBox.Ok)	
