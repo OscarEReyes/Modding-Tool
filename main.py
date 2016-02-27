@@ -1,12 +1,12 @@
 import sys
 from os import path
+from six import string_types
 from lxml import etree
 from PyQt4 import QtGui
 import design
 import modEditor as mEditor
-import errorMessages as em
-from six import string_types
-		
+import errorMessages as em	
+
 class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 	def __init__(self):
 		super().__init__()
@@ -14,23 +14,26 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 		self.setupUi(self)
 		self.openButton.clicked.connect(self.open_file_handler)
 		self.saveButton.clicked.connect(lambda:self.save(self.tree))
-		self.savechanges.clicked.connect(self.apply_changes_to_feature)
 		self.newModButton.clicked.connect(self.create_new_mod)
 		self.confirmButton.clicked.connect(self.edit_Tree)
-		self.editFeatureBttn.clicked.connect(self.populate_feature_fields)
-		self.changeFeatNameBttn.clicked.connect(self.change_feature_name)
+		# Feature Buttons
+		self.editFeatureButton.clicked.connect(self.fill_feature_fields)
+		self.savechanges.clicked.connect(self.apply_changes_to_feature)
+		self.changeFeatureNameButton.clicked.connect(self.change_feature_name)
+		self.addFeatureButton.clicked.connect(self.add_feature)
+		self.deleteFeatureButton.clicked.connect(lambda:self.delete_object(self.featureComboBox,self.features, 'f'))
+		# Category Buttons
 		self.editCategoryButton.clicked.connect(self.load_category)
 		self.saveCategoryChanges.clicked.connect(self.save_category_changes)
-		self.addFeatureBttn.clicked.connect(self.add_feature)
 		self.addCategoryButton.clicked.connect(self.add_category)
-		self.deleteFeatureBttn.clicked.connect(lambda:self.delete_object(self.featureComboBox,self.features, 'f'))
 		self.removeCategoryButton.clicked.connect(lambda:self.delete_object(self.CATEGORYCOMBOBOX, self.categories,'f'))
+		# Depenendency buttons
 		self.deleteDependencyBttn.clicked.connect(lambda:self.delete_object(self.dependencyComboBox,self.dependencies,'d'))
 		self.addCustomDependencyButton.clicked.connect(self.add_custom_dependency)
-		self.addOSDependencyBttn.clicked.connect(lambda:self.add_needed_dependency('Operating System', self.os_dict, str(self.OSDEPBOX.currentText())))
-		self.addVisualDependencyBttn.clicked.connect(lambda:self.add_needed_dependency('Visual', self.visual_dict, str(self.VISUALDEPBOX.currentText)))
-		self.addAudioDependencyBttn.clicked.connect(lambda:self.add_needed_dependency('Audio', self.audio_dict, str(self.AUDIODEPBOX.currentText())))
-
+		self.addOSDependencyBttn.clicked.connect(lambda:self.add_needed_dependency('Operating System', self.os_dict, self.OSDEPBOX))
+		self.addVisualDependencyBttn.clicked.connect(lambda:self.add_needed_dependency('Visual', self.visual_dict, self.VISUALDEPBOX))
+		self.addAudioDependencyBttn.clicked.connect(lambda:self.add_needed_dependency('Audio', self.audio_dict, self.AUDIODEPBOX))
+		# State Change functions. 
 		self.FORCEDCHECKBOX.stateChanged.connect(self.check_forced_checkbox_status)
 		self.FROMCHECKBOX.stateChanged.connect(self.check_from_checkbox_status)
 		self.VITALCHECKBOX.stateChanged.connect(self.check_vital_checkbox_status)
@@ -38,37 +41,43 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 		self.VISCHECKBOX.stateChanged.connect(lambda:self.dependency_check_status(self.VISCHECKBOX,self.addVisualDependencyBttn))
 		self.AUDCHECKBOX.stateChanged.connect(lambda:self.dependency_check_status(self.AUDCHECKBOX,self.addAudioDependencyBttn))
 		self.CATEGORIESCHECKBOX.stateChanged.connect(self.categories_check_status)
+
 		self.categories_status = False
-		self.feature_index = 0
-		self.os_dict = {}
-		self.audio_dict = {}
-		self.visual_dict = {}
+		self.os_dict = self.audio_dict = self.visual_dict = {}
 		self.c_dependency_dict = {}
-
-		self.softwareEdit = [
-			self.nameGeneratorEdit, self.descriptionEdit, self.categoryEdit,
-			self.ossEdit, self.randomEdit, self.nameEdit, self.fUnlockEdit,
-			self.retentionEdit, self.populationEdit, self.iterativeEdit,
-			self.houseEdit 
-		]
-
-		self.f_dict = {
-				"Server":self.serverEdit, "Unlock":self.unlockEdit,
-				"DevTime":self.devtimeEdit, "CodeArt":self.codeartEdit,
-				"Description":self.descEdit, "Usability":self.usabilityEdit,
-				"Stability":self.stabilityEdit, "Innovation":self.innovationEdit,
+		self.softwareDict = {
+			'Name':self.nameEdit,
+			'Category':self.categoryEdit,
+			'Description':self.descriptionEdit,
+			'Random':self.randomEdit,
+			'Unlock':self.unlockEdit,
+			'Population':self.populationEdit,
+			'OSSpecific':self.ossEdit,
+			'InHouse':self.houseEdit,
+			'Retention':self.retentionEdit,
+			'Iterative':self.iterativeEdit,
+			'NameGenerator':self.nameGeneratorEdit
+		}
+		self.featureDict = {
+				"Description":self.fDescEdit,
+				"Unlock":self.fUnlockEdit,
+				"DevTime":self.devtimeEdit,
+				"Innovation":self.innovationEdit,
+				"Usability":self.usabilityEdit,
+				"Stability":self.stabilityEdit,
+				"CodeArt":self.codeartEdit,
+				"Server":self.serverEdit, 
 				}
-
-		self.tagDict = {
+		self.categoryDict = {
+			'Name':self.categoryNameEdit,
+			'Description':self.cDescriptionEdit,
 			'Unlock':self.cUnlockEdit,
-			'TimeScale':self.cTimeScaleEdit,
 			'Popularity':self.cPopularityEdit,
+			'TimeScale':self.cTimeScaleEdit,
 			'Retention':self.cRetentionEdit,
 			'Iterative':self.cIterativeEdit,
-			'Description':self.cDescriptionEdit,
 			'NameGenerator':self.cNameGeneratorEdit
 			}
-		
 		mainMenu = self.menuBar()
 		fileMenu = self.add_menu_to_menubar(mainMenu, '&File')
 		self.define_action(mainMenu,fileMenu,"&Close", "Ctrl+Q", self.close)
@@ -106,14 +115,12 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 		self.open_file()
 
 	def open_file(self):	
-		""" Opens the xml file the user chooses and parses it. It then
-			enables buttons and fields and allows the user to 
-			customize his file'"""
+		""" Opens and parses an xml file. Enables buttons & fields"""
 
 		things_to_enable = [
 				self.dependencyComboBox, self.deleteDependencyBttn,
-				self.featureComboBox, self.editFeatureBttn, 
-				self.changeFeatNameBttn,self.addFeatureBttn, 
+				self.featureComboBox, self.editFeatureButton, 
+				self.changeFeatureNameButton,self.addFeatureButton, 
 				self.funcName, self.confirmButton,
 				self.CATEGORIESCHECKBOX
 				]		
@@ -121,18 +128,14 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 			with open(self.file_name) as f:	
 				parser = etree.XMLParser(remove_blank_text = True)
 				self.tree = etree.parse(f, parser)	
-			self.enable_multiple_objects(things_to_enable,True)
 			self.populate_software_type_fields()
 			self.features = self.tree.find('Features')	
-			combobox = self.featureComboBox												
-			self.add_to_combobox(combobox, self.features,'d')  
+			self.add_to_combobox(self.featureComboBox, self.features, 'd')  
 		
 			if self.tree.find("Categories") is not None:  
-				combobox = self.CATEGORYCOMBOBOX                                                  													
-				self.add_to_combobox(combobox, self.categories, 'd')
-
+				self.add_to_combobox(self.CATEGORYCOMBOBOX , self.categories, 'd')
+			self.enable_multiple_objects(things_to_enable,True)
 			self.statusBar().showMessage('File Opened',1500)	
-
 		except:
 			if self.file_name == '':
 				pass
@@ -142,21 +145,12 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 	def save(self, tree):
 		""" Saves the file to current directory."""
 
-		try:
-			with open(self.file_name, 'wb+') as f:														
-				tree.write(f, pretty_print=True)														
-			self.statusBar().showMessage('Saved',1500)	
+		with open(self.file_name, 'wb+') as f:														
+			tree.write(f, pretty_print = True)														
+		self.statusBar().showMessage('Saved',1500)	
 
-		except:
-			if self.file_name == '':																		
-				em.showSaveError(self)																	
-			else: 
-				em.showUnexpectedError(self)
-
-	def save_as(self,tree):
-		""" This function is tied to save As option and so it will ask
-		 	for a file name and a new directory in case the user wishes
-		 	to change where the file is saved"""
+	def save_as(self):
+		""" Save as Function. Self-explanatory"""
 
 		try:
 			self.file_name = QtGui.QFileDialog.getSaveFileName(self, 'Save As')
@@ -164,128 +158,88 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 			filename = path.basename(path.normpath(self.file_name))
 
 			with open(self.file_name,'wb') as file:
-				tree.write(file, pretty_print=True)
-
+				self.tree.write(file, pretty_print=True)
 			with open(self.directory,'w') as directory:
 				directory.write(file_name)
 			self.statusBar().showMessage('Saved',1500)
-			
 		except:
 			self.statusBar().showMessage('Failed to Save',1500)
 
 	def create_new_mod(self):
-		""" Runs code from a modBuilder module and creates an xml file
-			with the necessary fields to make a mod. """
+		""" Creates an xml file with the required fields. """
 
-		try:
-			self.file_name = QtGui.QFileDialog.getSaveFileName(self, 'Choose a name for your mod')
-			number_Of_Features = self.numberOfFeatures.value()														
-			mEditor.create_mod(number_Of_Features,self.file_name)	
+		self.file_name = QtGui.QFileDialog.getSaveFileName(self, 'Choose a name for your mod')
+		number_of_features = self.numberOfFeatures.value()														
+		mEditor.create_mod(number_of_features, self.file_name)	
 
-			self.open_file()
-			self.statusBar().showMessage('New Mod Created',1500)		
-
-		except:
-			pass
+		self.open_file()
+		self.statusBar().showMessage('New Mod Created',1500)		
 
 	def populate_software_type_fields(self):
-		""" Populates the text fields in the GUI this program uses. It
-			looks for the expected tags in the mod, gets their text, 
-			and displays it on the correct field so the user can see 
-			what it is and change it if desired. """
+		""" Populates the appropiate text fields in the GUI. """
 
-		try:
-			tags_list = [
-				'Name', 'Description', 'Unlock', 'Population' ,
-				'Random' ,'Category', 'InHouse', 'OSSpecific' ,
-				'Iterative','Retention','NameGenerator'
-				]
+		if self.tree.find("Categories") is not None:
+			self.CATEGORIESCHECKBOX.setCheckState(True)
 
-			text_list = [str(tree.find(tag).text) for tag in tags_list]
-
-			if self.tree.find("Categories") is not None:
-				self.CATEGORIESCHECKBOX.setCheckState(True)
-
-			for index, line in enumerate(self.softwareEdit):
-				line.setText(text_list[index])
-
-		except:
-			self.statusBar().showMessage('An error occured',1500)											
+		tags_list = [key for key in self.softwareDict]
+		field_list = [value for key, value in self.softwareDict.items()]
+		text_list = [str(self.tree.find(tag).text) for tag in tags_list]
+		
+		for index, field in enumerate(field_list):
+			field.setText(text_list[index])									
 
 	def load_category(self):
-		try:
-			name = self.CATEGORYCOMBOBOX.currentText()
-			index = self.get_index(self.categories, name, 'f')
-
-			self.category = self.categories[index]
-			mEditor.set_field_text(self.tagDict, self.category)
-		except:
-			self.statusBar().showMessage('An error occured.',1500)	
+		name = self.CATEGORYCOMBOBOX.currentText()
+		index = self.get_index(self.categories, name, 'f')
+		if name and index is not None:
+			try: 
+				self.category = self.categories[index]
+				mEditor.set_field_text(self.categoryDict, self.category)
+			except IndexError:
+				self.statusBar().showMessage('Index Error',1500)
 
 	def add_category(self):
-		""" Adds a Category to the tag Categories. It then creates the
-			tags needed and adds the correct text to each."""
+		""" Adds a Category to the tag Categories. Then creates the
+			tags needed and assigns the correct text to each."""
 
-		field_dict = {
-				'Name':self.categoryNameEdit,
-				'Description':self.cDescriptionEdit,
-				'Unlock':self.cUnlockEdit,
-				'Popularity':self.cPopularityEdit,
-				'TimeScale':self.cTimeScaleEdit,
-				'Retention':self.cRetentionEdit,
-				'Iterative':self.cIterativeEdit,
-				'NameGenerator':self.cNameGeneratorEdit
-			}
-
+		field_dict = self.categoryDict.copy()
+		field_dict.pop('Name', None)			
 		Categories = self.tree.find('Categories')
 		mEditor.add_category(self, Categories, field_dict)
 
 	def save_category_changes(self):
-		""" This function will save any changes made to the category
-			that was edited"""
+		""" Saves changes made to the edited category"""
 
-		try:	
-			mEditor.set_tag_text(self.tagDict, self.category, 'nc')
+		if self.category is not None:	
+			mEditor.set_tag_text(self.categoryDict, self.category, 'nc')
 
-		except:
-			self.statusBar().showMessage('An error occured.',1500)
+	def add_to_combobox(self, combobox, parent, item):
+		""" Adds object to a combobox """
 
-	def add_to_combobox(self,combobox,parent,item):
-		""" Clears the combobox to avoid duplicates and goes
-			and adds the appropiate objects. """
-
-		try:
+		if parent is not None:
 			combobox.clear()
-			if item == 'c' and parent is not None:
+			if item == 'c':
 				for child in parent:
 					combobox.addItem(child.text)
 			else:
 				for child in parent:
 					combobox.addItem(child.find('Name').text)
-		except:
-			self.statusBar().showMessage('An error occured',1500)
 
-	def delete_object(self,combobox,parent,t):
+	def delete_object(self, combobox, parent,t):
 		""" Deletes object from combobox and parent"""
 
 		try:	
-			name = str(self.combobox.currentText())					                                                          
-			index = self.get_index(parent, name, t)   
+			name = str(combobox.currentText())	
+			index = self.get_index(parent, name, t)  
 			parent.remove(parent[index])      
-
-			self.combobox.removeItem(self.combobox.currentIndex())   
-
-		except:		
-			if combobox.count() == 0:													
-				self.statusBar().showMessage('There is nothing to delete',1500)	            
-			else:  
-				self.statusBar().showMessage('An error occured.',1500) 	
+			combobox.removeItem(combobox.currentIndex())   
+		except IndexError:														
+			self.statusBar().showMessage('There is nothing to delete',1500)	            
 
 	def get_index(self,parent,name, t):
 		""" This function gets the index of the wanted object"""
 
 		idx = 0
-
 		if t == 'f':
 			if any(child.find('Name').text == name for idx, child in enumerate(parent)):
 				return idx
@@ -293,163 +247,61 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 			if any(child.text == name for idx, child in enumerate(parent)):																
 				return idx 
 
-	def populate_feature_fields(self):
+	def fill_feature_fields(self):
 		""" Displays the information of a feature selected by the user.
 		"""
-		self.dependencies = feature.find("Dependencies")	
 		feature_name = self.featureComboBox.currentText()
-
-		try:
-			self.feature_index = self.get_index(self.features, feature_name, 'f') 
-			feature = self.features[self.feature_index]	
-			mEditor.set_tag_text(self.f_dict, feature, 'nc')
-			
-			combobox = self.dependencyComboBox			   
-			self.add_to_combobox(combobox, self.dependencies, 'c')	
+		index = self.get_index(self.features, feature_name, 'f') 
+		self.feature = self.features[index]	
+		self.dependencies = self.feature.find("Dependencies")	
+	
+		if self.feature is not None:
+			mEditor.set_field_text(self.feature, self.featureDict)
+			self.add_to_combobox(self.dependencyComboBox, self.dependencies, 'c')	
 
 			self.addCustomDependencyButton.setEnabled(True)
-			self.deleteFeatureBttn.setEnabled(True)
-		except:
-			self.statusBar().showMessage('An error occured',1500)
+			self.deleteFeatureButton.setEnabled(True)
 
 	def edit_Tree(self): 
-		""" Removes the Categories tag if self.categories_status is
-			False. If it exists, it will look for the expected tags,
-			and assign the required text. The sets the tag text for 
-			each tag in software"""
-
-		tag_dict = [
-			'Random','OSSpecific', 'InHouse', 'Category',
-			'Name', 'Description', 'Unlock','Population',
-			'Iterative','Retention', 'NameGenerator'
-			] 
+		""" Sets the tag text for each tag in software. Removes the 
+			Categories tag if self.categories_status is False otherwise
+			it assigns the appropiate text to each tag """
 
 		Categories = self.tree.find("Categories")
-			
-		try:
-			if self.categories_status is False and Categories is not None:
-				Categories.getparent().remove(Categories)
-
-			text_dict = dict(zip(tag_dict, self.softwareEdit))
-			mEditor.set_tag_text(text_dict, self.tree, 'nc')
-
-			self.statusBar().showMessage('Changes made',1500)
-		except:
-			self.statusBar().showMessage('An error occured',1500)	                							 	
+		if not self.categories_status and Categories is not None:
+			Categories.getparent().remove(Categories)
+		mEditor.set_tag_text(self.softwareDict, self.tree, 'nc')
+		self.statusBar().showMessage('Changes made',1500)                							 	
 
 	def add_feature(self):
 		""" Add a feature by copying an existing feature and adds it to
 			the Features tag in the tree."""
 
-		name = self.funcName.text()
-		function_exists = self.check_if_feature_exists(name)	
-		combobox = self.featureComboBox												
+		name = str(self.funcName.text())
+		function_exists = self.check_for_feature(name)	
 		if name and not function_exists:
 			mEditor.add_feature(self.features, name)																									
-			self.add_to_combobox(combobox, self.features, 'd')	
-			self.statusBar().showMessage('Feature Created',1500)
+			self.add_to_combobox(self.featureComboBox, self.features, 'd')	
+			self.statusBar().showMessage('Feature Created', 1500)
 		else:																			
-			em.show_name_taken(self)															 
+			em.show_name_taken(self)		
 
-	def change_feature_name(self):
-		""" This function is used to change the name of a feature in both the
-			xml file and in the feature combobox."""
-
-		f_name = str(self.featureComboBox.currentText())
-		text = str(self.newNameEdit.text())
-
-		# Changes the text value for the Name tag in the selected feature
-		index = self.get_index(self.features, f_name, 'f')
-		self.features[index].find("Name").text = text 
-
-		# Sets new text for the selected feature to reflect the name change
-		index = self.featureComboBox.currentIndex()
-		self.featureComboBox.setItemText(index, self.newNameEdit.text())
-
-		#Clears the newNameEdit field
-		self.newNameEdit.clear()
-
-	def check_if_feature_exists(self,name):			
-		""" Checks if there is a feature in features with a certain
-			name and return a boolean value. """	
-
-		if any(feature.find('Name').text == name for feature in self.features):
-			return True
-		return False  		
-
-	def apply_changes_to_feature(self):	
-		""" Updates the selected feature's information. The feature is
-			updated to reflect the changes that were made on the GUI. 
-			Dictionaries are then cleared to prevent adding things more
-			than once """
-
-		feature = self.features[self.feature_index]	
-		depbox_list = [
-				self.OSDEPBOX, self.VISUALDEPBOX, self.AUDIODEPBOX
-				]
-		try:
-			# Sets the appropiate text values for each tag in feature.
-			mEditor.set_tag_text(self.f_dict, feature, 'nc')
-
-			# Enables and/or clear fields and manages dependencies.				
-			self.enable_multiple_objects(depbox_list, True)
-			self.clear_fields()
-			self.dependency_managing()	
-
-			# Checks for attributes and takes action if necessary.												
-			self.check_for_attributes(feature)														
-			if self.From_Status:
-				feature.attrib['From'] = str(self.fromLE.text())
-
-			self.statusBar().showMessage('Saved changes to feature',1500)							
-		except:
-			em.errorWhileSaving(self)											
-
-	def dependency_managing(self):
-		""" Manages dependencies. Creates a dependencies tag if it does
-			not exist yet and stores it in self.dependencies for easy
-			access. Then adds the necessary dependencies to the current
-			feature, add custom dependencies and adds dependencies to 
-			the dependencies combobox. """
-			
-		dependency_dict_list = [
-			self.os_dict, self.visual_dict, self.audio_dict
-			]	
-		feature = self.features[self.feature_index]
-		dependencies = self.dependencies
-
-		try:
-			mEditor.add_Dependencies(dependencies, dependency_dict_list)		
-
-			combobox = self.dependencyComboBox
-			mEditor.add_custom_dependencies(dependencies, self.c_dependency_dict)
-			self.add_to_combobox(combobox, self.dependencies, 'c')
-
-		except:
-			pass
-
-	def add_custom_dependency(self):
-		""" Adds a custom depencency if it does not already exist """
-
-		software = str(self.softwareDepLE.text())
-		feature = str(self.featureDepLE.text())
-
-		if software and feature:
-			self.check_for_feature(feature, software, self.c_dependency_dict)	
-		else:
-			em.showNoSoftwareNoFeatureError(self)                                     	
-
-	def check_for_feature(self, feature, software, dependency_dict):
+	def check_for_c_dependency(self, feature, software, dependency_dict):
 		""" Checks if the feature the dependency depends on is part of
 			the custom dependency dictionary which is used when adding
 			custom dependencies. """
 
 		dependency_dict.setdefault(software, feature)
-
 		if feature not in dependency_dict[software]:
 			dependency_dict[software].append(feature)	
 		else:
-			self.statusBar().showMessage('Cannot add same dependency twice.',1500)					
+			self.statusBar().showMessage('Cannot add same dependency twice.',1500)	
+
+	def check_for_feature(self,name):			
+		""" Checks if there is a feature in features with a certain
+			name and return a boolean value. """	
+
+		return (any(feature.find('Name').text == name for feature in self.features))
 
 	def check_for_attributes(self,feature):
 		""" Checks for attributes. Runs the first three functions to
@@ -471,7 +323,76 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 				feature.attrib[attribute] = 'TRUE'
 
 			elif attribute in feature.attrib and not status:
-				del feature.attrib[attribute]
+				del feature.attrib[attribute]													 
+
+	def change_feature_name(self):
+		""" This function is used to change the name of a feature in both the
+			xml file and in the feature combobox."""
+
+		feature_name = str(self.featureComboBox.currentText())
+		text = str(self.newNameEdit.text())
+
+		# Changes the text value for the Name tag in the selected feature
+		index = self.get_index(self.features, feature_name, 'f')
+		self.features[index].find("Name").text = text 
+
+		# Sets new text for the selected feature to reflect the name change
+		index = self.featureComboBox.currentIndex()
+		self.featureComboBox.setItemText(index, self.newNameEdit.text())
+
+		#Clears the newNameEdit field
+		self.newNameEdit.clear()
+
+	def apply_changes_to_feature(self):	
+		""" Updates the selected feature's information. Then updates feature 
+		"""
+		try:
+			depbox_list = [
+					self.OSDEPBOX, 
+					self.VISUALDEPBOX, 
+					self.AUDIODEPBOX
+					]
+			# Sets the appropiate text values for each tag in feature.
+			mEditor.set_tag_text(self.featureDict, self.feature, 'nc')
+			# Enables and/or clear fields and manages dependencies.				
+			self.enable_multiple_objects(depbox_list, True)
+			self.add_dependencies()	
+			self.clear_fields()
+			# Checks for attributes and takes action if necessary.												
+			self.check_for_attributes(self.feature)														
+			if self.From_Status:
+				self.feature.attrib['From'] = str(self.fromLE.text())
+
+			self.statusBar().showMessage('Saved changes to feature', 1500)	
+		except AttributeError:
+			self.statusBar().showMessage('Select a feature to edit', 1500)
+
+	def add_dependencies(self):
+		""" Creates a dependencies tag if it does not exist yet. Then 
+			adds the necessary dependencies to the current feature, add
+			custom dependencies and adds dependencies to the
+			dependencies combobox. """
+			
+		dependency_dicts = [
+			self.os_dict, self.visual_dict, self.audio_dict
+			]	
+		mEditor.add_dependencies_to_feature(self.dependencies, dependency_dicts)		
+		mEditor.add_custom_dependencies(self.dependencies, self.c_dependency_dict)
+		self.add_to_combobox(self.dependencyComboBox, self.dependencies, 'c')
+
+	def add_needed_dependency(self, d_type, d_dict, combobox): 
+		dependency = str(combobox.currentText()) 
+		d_dict.setdefault(dependency, d_type)
+
+	def add_custom_dependency(self):
+		""" Adds a custom depencency if it does not already exist """
+
+		software = str(self.softwareDepLE.text())
+		feature = str(self.featureDepLE.text())
+		if software and feature:
+			self.check_for_c_dependency(feature, software, self.c_dependency_dict)	
+		else:
+			em.showNoSoftwareNoFeatureError(self)                                     	
 
 	def enable_multiple_objects(self, things_to_enable, state):
 		""" Iterates over a lists and enables or disables the fields in
@@ -480,25 +401,18 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 		for thing in things_to_enable:
 			thing.setEnabled(state)	
 	
-	def add_needed_dependency(self,d_type, d_dict, dependency):  
-		d_dict.setdefault(dependency, d_type)
-
 	def categories_check_status(self):
 		""" Checks if the categories checkbox is selected and performs
 			the required actions. """
 
-		field_list = [
-				self.cDescriptionEdit, self.removeCategoryButton, 
-				self.editCategoryButton, self.cPopularityEdit, 
-				self.cTimeScaleEdit, self.addCategoryButton, 
-				self.cUnlockEdit, self.saveCategoryChanges,
+		button_list = [
+				self.saveCategoryChanges, self.removeCategoryButton, 
+				self.editCategoryButton, self.addCategoryButton,
 				]
-
 		Categories = self.tree.find("Categories")
 		self.categories_status = self.CATEGORIESCHECKBOX.isChecked()
-
 		if self.categories_status and Categories is None:
-			self.enable_multiple_objects(field_list, True)
+			self.enable_multiple_objects(button_list, True)
 			self.categories = etree.SubElement(self.tree.getparent(), 'Categories')
 		else:
 			self.CATEGORYCOMBOBOX.clear()          
@@ -537,10 +451,9 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 			self.c_dependency_dict, self.os_dict, 
 			self.visual_dict, self.audio_dict
 			]
-
 		for item in dict_set:
 			item.clear()   
-		for key, value in self.f_dict.items():
+		for key, value in self.featureDict.items():
 			value.clear() 
 
 def main():
