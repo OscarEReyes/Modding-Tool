@@ -15,36 +15,43 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 		self.openButton.clicked.connect(self.open_file_handler)
 		self.saveButton.clicked.connect(lambda:self.save(self.tree))
 		self.newModButton.clicked.connect(self.create_new_mod)
-		self.confirmButton.clicked.connect(self.edit_Tree)
-		# Feature Buttons
+		self.saveSoftwareButton.clicked.connect(self.edit_tree)
+
+		# Feature Buttons #
 		self.editFeatureButton.clicked.connect(self.fill_feature_fields)
 		self.savechanges.clicked.connect(self.apply_changes_to_feature)
 		self.changeFeatureNameButton.clicked.connect(self.change_feature_name)
 		self.addFeatureButton.clicked.connect(self.add_feature)
 		self.deleteFeatureButton.clicked.connect(lambda:self.delete_object(self.featureComboBox,self.features, 'f'))
-		# Category Buttons
+
+		# Category Buttons #
 		self.editCategoryButton.clicked.connect(self.load_category)
 		self.saveCategoryChanges.clicked.connect(self.save_category_changes)
 		self.addCategoryButton.clicked.connect(self.add_category)
-		self.removeCategoryButton.clicked.connect(lambda:self.delete_object(self.CATEGORYCOMBOBOX, self.categories,'f'))
-		# Depenendency buttons
+		self.removeCategoryButton.clicked.connect(lambda:self.delete_object(self.CATEGBOX, self.categories,'f'))
+
+		# Depenendency buttons #
 		self.deleteDependencyBttn.clicked.connect(lambda:self.delete_object(self.dependencyComboBox,self.dependencies,'d'))
 		self.addCustomDependencyButton.clicked.connect(self.add_custom_dependency)
 		self.addOSDependencyBttn.clicked.connect(lambda:self.add_needed_dependency('Operating System', self.os_dict, self.OSDEPBOX))
 		self.addVisualDependencyBttn.clicked.connect(lambda:self.add_needed_dependency('Visual', self.visual_dict, self.VISUALDEPBOX))
 		self.addAudioDependencyBttn.clicked.connect(lambda:self.add_needed_dependency('Audio', self.audio_dict, self.AUDIODEPBOX))
-		# State Change functions. 
+
+		# State Change functions. # 
 		self.FORCEDCHECKBOX.stateChanged.connect(self.check_forced_checkbox_status)
 		self.FROMCHECKBOX.stateChanged.connect(self.check_from_checkbox_status)
 		self.VITALCHECKBOX.stateChanged.connect(self.check_vital_checkbox_status)
 		self.OSCHECKBOX.stateChanged.connect(lambda:self.dependency_check_status(self.OSCHECKBOX,self.addOSDependencyBttn))
 		self.VISCHECKBOX.stateChanged.connect(lambda:self.dependency_check_status(self.VISCHECKBOX,self.addVisualDependencyBttn))
 		self.AUDCHECKBOX.stateChanged.connect(lambda:self.dependency_check_status(self.AUDCHECKBOX,self.addAudioDependencyBttn))
-		self.CATEGORIESCHECKBOX.stateChanged.connect(self.categories_check_status)
+		self.CATEGCHECKBOX.stateChanged.connect(self.categories_check_status)
 
 		self.categories_status = False
-		self.os_dict = self.audio_dict = self.visual_dict = {}
+		self.os_dict = {}
+		self.audio_dict = {}
+		self.visual_dict = {}
 		self.c_dependency_dict = {}
+
 		self.softwareDict = {
 			'Name':self.nameEdit,
 			'Category':self.categoryEdit,
@@ -112,35 +119,34 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 	def open_file_handler(self):
 		self.file_name = QtGui.QFileDialog.getOpenFileName(self, 'Open File')
 		self.directory = path.dirname(self.file_name)
-		self.open_file()
+		self.open_file(self.file_name)
 
-	def open_file(self):	
+	def open_file(self, file_name):	
 		""" Opens and parses an xml file. Enables buttons & fields"""
 
 		things_to_enable = [
 				self.dependencyComboBox, self.deleteDependencyBttn,
 				self.featureComboBox, self.editFeatureButton, 
 				self.changeFeatureNameButton,self.addFeatureButton, 
-				self.funcName, self.confirmButton,
-				self.CATEGORIESCHECKBOX
+				self.featureNameEdit, self.saveSoftwareButton,
+				self.CATEGCHECKBOX
 				]		
 		try:
-			with open(self.file_name) as f:	
+			with open(file_name) as f:	
 				parser = etree.XMLParser(remove_blank_text = True)
 				self.tree = etree.parse(f, parser)	
+
 			self.populate_software_type_fields()
 			self.features = self.tree.find('Features')	
 			self.add_to_combobox(self.featureComboBox, self.features, 'd')  
 		
 			if self.tree.find("Categories") is not None:  
-				self.add_to_combobox(self.CATEGORYCOMBOBOX , self.categories, 'd')
+				self.add_to_combobox(self.CATEGBOX , self.categories, 'd')
+				
 			self.enable_multiple_objects(things_to_enable,True)
 			self.statusBar().showMessage('File Opened',1500)	
-		except:
-			if self.file_name == '':
+		except FileNotFoundError:
 				pass
-			else:
-				em.showUnexpectedError(self)
 
 	def save(self, tree):
 		""" Saves the file to current directory."""
@@ -150,7 +156,7 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 		self.statusBar().showMessage('Saved',1500)	
 
 	def save_as(self):
-		""" Save as Function. Self-explanatory"""
+		""" Save As Function. Self-explanatory"""
 
 		try:
 			self.file_name = QtGui.QFileDialog.getSaveFileName(self, 'Save As')
@@ -161,6 +167,7 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 				self.tree.write(file, pretty_print=True)
 			with open(self.directory,'w') as directory:
 				directory.write(file_name)
+				
 			self.statusBar().showMessage('Saved',1500)
 		except:
 			self.statusBar().showMessage('Failed to Save',1500)
@@ -168,18 +175,18 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 	def create_new_mod(self):
 		""" Creates an xml file with the required fields. """
 
-		self.file_name = QtGui.QFileDialog.getSaveFileName(self, 'Choose a name for your mod')
-		number_of_features = self.numberOfFeatures.value()														
+		number_of_features = self.featureNum.value()
+		self.file_name = QtGui.QFileDialog.getSaveFileName(self, 'Choose a name for your mod')													
 		mEditor.create_mod(number_of_features, self.file_name)	
 
-		self.open_file()
+		self.open_file(self.file_name)
 		self.statusBar().showMessage('New Mod Created',1500)		
 
 	def populate_software_type_fields(self):
 		""" Populates the appropiate text fields in the GUI. """
 
 		if self.tree.find("Categories") is not None:
-			self.CATEGORIESCHECKBOX.setCheckState(True)
+			self.CATEGCHECKBOX.setCheckState(True)
 
 		tags_list = [key for key in self.softwareDict]
 		field_list = [value for key, value in self.softwareDict.items()]
@@ -189,7 +196,7 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 			field.setText(text_list[index])									
 
 	def load_category(self):
-		name = self.CATEGORYCOMBOBOX.currentText()
+		name = self.CATEGBOX.currentText()
 		index = self.get_index(self.categories, name, 'f')
 		if name and index is not None:
 			try: 
@@ -203,7 +210,8 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 			tags needed and assigns the correct text to each."""
 
 		field_dict = self.categoryDict.copy()
-		field_dict.pop('Name', None)			
+		field_dict.pop('Name', None)	
+
 		Categories = self.tree.find('Categories')
 		mEditor.add_category(self, Categories, field_dict)
 
@@ -233,6 +241,7 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 			index = self.get_index(parent, name, t)  
 			parent.remove(parent[index])      
 			combobox.removeItem(combobox.currentIndex())   
+
 		except IndexError:														
 			self.statusBar().showMessage('There is nothing to delete',1500)	            
 
@@ -250,6 +259,7 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 	def fill_feature_fields(self):
 		""" Displays the information of a feature selected by the user.
 		"""
+
 		feature_name = self.featureComboBox.currentText()
 		index = self.get_index(self.features, feature_name, 'f') 
 		self.feature = self.features[index]	
@@ -262,7 +272,7 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 			self.addCustomDependencyButton.setEnabled(True)
 			self.deleteFeatureButton.setEnabled(True)
 
-	def edit_Tree(self): 
+	def edit_tree(self): 
 		""" Sets the tag text for each tag in software. Removes the 
 			Categories tag if self.categories_status is False otherwise
 			it assigns the appropiate text to each tag """
@@ -277,10 +287,10 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 		""" Add a feature by copying an existing feature and adds it to
 			the Features tag in the tree."""
 
-		name = str(self.funcName.text())
+		name = str(self.featureNameEdit.text())
 		function_exists = self.check_for_feature(name)	
 		if name and not function_exists:
-			mEditor.add_feature(self.features, name)																									
+			mEditor.add_feature(self.features, name)								
 			self.add_to_combobox(self.featureComboBox, self.features, 'd')	
 			self.statusBar().showMessage('Feature Created', 1500)
 		else:																			
@@ -308,14 +318,10 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 			check the status of the vital,from, and forced
 			checkboxes. """
 
-		self.check_vital_checkbox_status()
-		self.check_from_checkbox_status()
-		self.check_forced_checkbox_status()
-
 		attribute_dict = {
-			'Vital':self.Vital_Status,
-			'Forced':self.Forced_Status,
-			'From':self.From_Status
+			'Vital': self.Vital_Status,
+			'Forced': self.Forced_Status,
+			'From': self.From_Status
 			}
 
 		for attribute, status in attribute_dict.items():
@@ -323,7 +329,52 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 				feature.attrib[attribute] = 'TRUE'
 
 			elif attribute in feature.attrib and not status:
-				del feature.attrib[attribute]													 
+				del feature.attrib[attribute]				
+
+	def check_forced_checkbox_status(self):
+		""" Checks if forced checkbox and then enables 
+			or disables the other two checkboxes """
+
+		self.Forced_Status = self.FORCEDCHECKBOX.isChecked() 													
+		self.FROMCHECKBOX.setEnabled(not self.Forced_Status)    	   												
+		self.VITALCHECKBOX.setEnabled(not self.Forced_Status) 	   											
+
+	def check_vital_checkbox_status(self):
+		""" Checks if vitalcheckbox is checked and then enables or
+			disables FORCEDCHECKBOX """
+
+		self.Vital_Status = self.VITALCHECKBOX.isChecked() 													
+		self.FORCEDCHECKBOX.setEnabled(not self.Vital_Status)	
+
+	def check_from_checkbox_status(self):		
+		""" Checks the status of the from checkbox and then enables or
+			disables FORCEDCHECKBOX """	
+
+		self.From_Status = self.FROMCHECKBOX.isChecked() 														
+		self.FORCEDCHECKBOX.setEnabled(not self.From_Status)									 
+
+	def categories_check_status(self):
+	""" Checks if the categories checkbox is selected and performs
+		the required actions. """
+
+		button_list = [
+				self.saveCategoryChanges, self.removeCategoryButton, 
+				self.editCategoryButton, self.addCategoryButton,
+				]
+		Categories = self.tree.find("Categories")
+		self.categories_status = self.CATEGCHECKBOX.isChecked()
+		if self.categories_status and Categories is None:
+			self.enable_multiple_objects(button_list, True)
+			self.categories = etree.SubElement(self.tree.getparent(), 'Categories')
+		else:
+			self.CATEGBOX.clear()          
+			self.enable_multiple_objects(field_list, False)
+
+	def dependency_check_status(self, checkbox, button):       
+		""" Enables button if checkbox is checked when triggered. """ 
+			  
+		status =  checkbox.isChecked()
+		button.setEnabled(status)				
 
 	def change_feature_name(self):
 		""" This function is used to change the name of a feature in both the
@@ -380,15 +431,15 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 		mEditor.add_custom_dependencies(self.dependencies, self.c_dependency_dict)
 		self.add_to_combobox(self.dependencyComboBox, self.dependencies, 'c')
 
-	def add_needed_dependency(self, d_type, d_dict, combobox): 
+	def add_needed_dependency(self, software, d_dict, combobox): 
 		dependency = str(combobox.currentText()) 
-		d_dict.setdefault(dependency, d_type)
+		d_dict.setdefault(dependency, software)
 
 	def add_custom_dependency(self):
 		""" Adds a custom depencency if it does not already exist """
 
-		software = str(self.softwareDepLE.text())
-		feature = str(self.featureDepLE.text())
+		software = str(self.softwarEdit.text())
+		feature = str(self.featureEdit.text())
 		if software and feature:
 			self.check_for_c_dependency(feature, software, self.c_dependency_dict)	
 		else:
@@ -400,59 +451,12 @@ class MainWindow(QtGui.QMainWindow, design.Ui_MainWindow):
 
 		for thing in things_to_enable:
 			thing.setEnabled(state)	
-	
-	def categories_check_status(self):
-		""" Checks if the categories checkbox is selected and performs
-			the required actions. """
-
-		button_list = [
-				self.saveCategoryChanges, self.removeCategoryButton, 
-				self.editCategoryButton, self.addCategoryButton,
-				]
-		Categories = self.tree.find("Categories")
-		self.categories_status = self.CATEGORIESCHECKBOX.isChecked()
-		if self.categories_status and Categories is None:
-			self.enable_multiple_objects(button_list, True)
-			self.categories = etree.SubElement(self.tree.getparent(), 'Categories')
-		else:
-			self.CATEGORYCOMBOBOX.clear()          
-			self.enable_multiple_objects(field_list, False)
-
-	def dependency_check_status(self, checkbox, button):       
-		""" Enables button if checkbox is checked when triggered. """ 
-			  
-		status =  checkbox.isChecked()
-		button.setEnabled(status)
-
-	def check_forced_checkbox_status(self):
-		""" Checks if forced checkbox and then enables 
-			or disables the other two checkboxes """
-
-		self.Forced_Status = self.FORCEDCHECKBOX.isChecked() 													
-		self.FROMCHECKBOX.setEnabled(not self.Forced_Status)    	   												
-		self.VITALCHECKBOX.setEnabled(not self.Forced_Status) 	   											
-
-	def check_vital_checkbox_status(self):
-		""" Checks if vitalcheckbox is checked and then enables or
-			disables FORCEDCHECKBOX """
-
-		self.Vital_Status = self.VITALCHECKBOX.isChecked() 													
-		self.FORCEDCHECKBOX.setEnabled(not self.Vital_Status)	
-
-	def check_from_checkbox_status(self):		
-		""" Checks the status of the from checkbox and then enables or
-			disables FORCEDCHECKBOX """	
-
-		self.From_Status = self.FROMCHECKBOX.isChecked() 														
-		self.FORCEDCHECKBOX.setEnabled(not self.From_Status)				
 
 	def clear_fields(self):
-		dict_set= [
-			self.c_dependency_dict, self.os_dict, 
-			self.visual_dict, self.audio_dict
-			]
-		for item in dict_set:
-			item.clear()   
+			self.c_dependency_dict.clear()
+			self.os_dict.clear()
+			self.visual_dict.clear()
+			self.audio_dict.clear()
 		for key, value in self.featureDict.items():
 			value.clear() 
 
