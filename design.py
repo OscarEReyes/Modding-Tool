@@ -203,9 +203,9 @@ class Ui_MainWindow(object):
         self.FROMCHECKBOX = QtGui.QCheckBox(self.FeatureTab3)
         self.FROMCHECKBOX.setGeometry(QtCore.QRect(130, 40, 71, 30))
         self.FROMCHECKBOX.setObjectName(_fromUtf8("FROMCHECKBOX"))
-        self.fromLE = QtGui.QLineEdit(self.FeatureTab3)
-        self.fromLE.setGeometry(QtCore.QRect(10, 40, 101, 21))
-        self.fromLE.setObjectName(_fromUtf8("fromLE"))
+        self.fromEdit = QtGui.QLineEdit(self.FeatureTab3)
+        self.fromEdit.setGeometry(QtCore.QRect(10, 40, 101, 21))
+        self.fromEdit.setObjectName(_fromUtf8("fromEdit"))
         self.VITALCHECKBOX = QtGui.QCheckBox(self.FeatureTab3)
         self.VITALCHECKBOX.setGeometry(QtCore.QRect(130, 3, 61, 43))
         self.VITALCHECKBOX.setObjectName(_fromUtf8("VITALCHECKBOX"))
@@ -618,7 +618,7 @@ class Ui_MainWindow(object):
         MainWindow.setCentralWidget(self.centralwidget)
 
         self.retranslateUi(MainWindow)
-        self.FeatureTabs.setCurrentIndex(0)
+        self.FeatureTabs.setCurrentIndex(2)
         self.tabWidget_2.setCurrentIndex(0)
         self.tabWidget_3.setCurrentIndex(0)
         self.tabWidget_4.setCurrentIndex(0)
@@ -715,5 +715,4 @@ class Ui_MainWindow(object):
         self.editFeatureButton.setText(_translate("MainWindow", "Edit Feature", None))
         self.featureNameEdit.setText(_translate("MainWindow", "Feature", None))
         self.featureNameEdit.setPlaceholderText(_translate("MainWindow", "Function", None))
-        self.addFeatureButton.setText(_translate("MainWindow", "Add Feature", None))
-
+        self.addFeatureButton.setText(_translate("MainWindow", "Add Feature", 
