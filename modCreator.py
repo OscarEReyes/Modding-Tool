@@ -1,5 +1,5 @@
 from lxml import etree
-import softwareModClasses as mc
+import softwareModClasses as smc 
 
 
 def create_mod(number_of_features, mod_name, combobox):
@@ -25,14 +25,14 @@ def create_tags(root):
 
     for field in field_list:
         etree.SubElement(root, field).text = field
-    mc.Category.add(root, None, True)
+    smc.Category.add(root, None, True)
 
 
 def add_features(root, number_of_features, combobox):
     features = etree.SubElement(root, "Features")
     for num in range(number_of_features):
         name = 'Feature {}'.format(num + 1)
-        mc.Feature.add(features, name, combobox)
+        smc.Feature.add(features, name, combobox)
 
 
 def save_mod(root, name):
