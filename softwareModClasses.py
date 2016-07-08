@@ -10,7 +10,7 @@ class Categories:
         self.combobox = combobox
         # Add category to root
         if not scan:
-            parent.insert(2, etree.Element("Categories"))
+            parent.insert(5, etree.Element("Categories"))
         self.categories = parent.find('Categories')
 
     @classmethod
@@ -24,22 +24,35 @@ class Categories:
 
     @classmethod
     def find_category(cls, name):
+        """ Takes str name
+            Compares the instance variable name of each category in the class list category_list
+            Returns the category that makes the comparison true.
+        """
         for category in cls.category_list:
             if category.name == name:
                 return category
 
     def delete(self):
+        """ Deletes categories
+            Clears combobox and class list category_list
+            Removes categories from self.parent """
+
         self.combobox.clear()
         self.category_list.clear()
         self.parent.remove(self.categories)
 
     def scan_category(self, name):
+        """ Takes str name
+            Adds name to self.combobox
+            Creates a Category object of Name name
+            Appends category object to category_list """
+
         self.combobox.addItem(name)
-        category = Category.add(self.categories, name, False, True)
+        category = Category.add(self.categories, name)
         self.category_list.append(category)
 
     def add_category(self, name):
-        if not any(category.find("Name").text == name for category in self.categories):
+        if not any(category.attrib["Name"] == name for category in self.categories):
             category = Category.add(self.categories, name)
             self.combobox.addItem(name)
             self.category_list.append(category)
@@ -53,62 +66,39 @@ class Categories:
 
 
 class Category(SoftwareObject):
-    inventory = {}
     line_tags = [
-        'Name',
         'Description',
         'Unlock',
         'Popularity',
         'Retention',
         'TimeScale',
         'Iterative',
-        'NameGenerator',
+        'NameGenerator'
     ]
 
-    def __init__(self, parent, name, single_category, scan):
+    def __init__(self, parent, name, scan):
         SoftwareObject.__init__(self, parent, name)
-        self.parent = parent
-        self.name = name
-
-        if single_category and not scan:
-            self.create_category(single_category, 'Default')
-        elif single_category and scan:
-            Category.category = parent.find('Category')
-        else:
-            self.create_category(single_category, self.name)
+        if self not in self.inventory:
+            self.inventory[self] = name
+        if not scan:
+            self.create_category(name)
 
     @classmethod
-    def add(cls, parent, name, single_category=False, scan=False):
-        return cls(parent, name, single_category, scan)
+    def add(cls, parent, name, scan=False):
+        return cls(parent, name, scan)
 
-    @classmethod
-    def return_single_category(cls):
-        keys = cls.inventory.keys()
-        return list(keys)[0]
+    def create_category(self, name):
+        category = etree.SubElement(self.parent, "Category", Name=name)
+        self.inventory[self] = category
+        self.set_tags(category)
 
-    def create_category(self, single_category, text):
-        if single_category:
-            self.parent.insert(2, etree.Element("Category"))
-            category = self.parent.find('Category')
-        else:
-            category = etree.SubElement(self.parent, "Category")
-            self.inventory[self] = category
-        self.add_tags(category, text)
-
-    def add_tags(self, element, name):
+    def set_tags(self, element):
         for field in self.line_tags:
-            if field == 'Name':
-                etree.SubElement(element, "Name").text = name
-            etree.SubElement(element, field).text = field
-
-    def erase(self):
-        Category.inventory.clear()
-        category = self.parent.find('Category')
-        self.parent.remove(category)
+            etree.SubElement(element, field)
+            self.set_etree_element_text()
 
 
 class Feature(SoftwareObject):
-    inventory = {}
     line_tags = [
         'Description',
         'Unlock',
@@ -177,28 +167,29 @@ class Feature(SoftwareObject):
             else:
                 self.delete_attribute(attribute)
 
-    def add_attribute(self, attribute, text):
+    def add_attribute(self, attrib, text):
         feature = self.inventory[self]
-        if attribute not in feature.attrib:
-            feature.attrib[attribute] = text
+        if attrib not in feature.attrib:
+            feature.attrib[attrib] = text
 
-    def delete_attribute(self, attribute):
+    def delete_attribute(self, attrib):
         feature = self.inventory[self]
-        if attribute in feature.attrib:
-            del feature.attrib[attribute]
+        if attrib in feature.attrib:
+            del feature.attrib[attrib]
 
-    def add_dependency(self, software, dependency_feature):
-        if dependency_feature not in self.dependencies:
+    def add_dependency(self, software, dep_feature):
+        if dep_feature not in self.dependencies:
             feature = self.inventory[self]
-            dependency = Dependency(feature, software, dependency_feature)
-            self.dependencies[dependency_feature] = dependency
+            dependency = Dependency(feature, software, dep_feature)
+            self.dependencies[dep_feature] = dependency
 
-    def delete_dependency(self, dependency_feature):
-        if any(dependency.feature == dependency_feature for dependency in self.dependencies):
+    def delete_dependency(self, dep_feature):
+        if any(dep.feature == dep_feature for dep in self.dependencies):
             feature = self.inventory[self]
-            dependency = feature.dependencies[dependency_feature]
+            dependency = feature.dependencies[dep_feature]
             Dependency.delete_dependency(feature, dependency.feature)
-            self.dependencies.pop(dependency_feature)
+            self.dependencies.pop(dep_feature)
+
 
 class Dependency:
     def __init__(self, parent, software, feature):
@@ -221,3 +212,4 @@ class Dependency:
 
     def create_dependency(self):
         etree.SubElement(self.parent, "Dependency", Software=self.software).text = self.feature
+
