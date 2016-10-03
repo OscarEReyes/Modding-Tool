@@ -1,69 +1,6 @@
-from lxml import etree
 from softwareObject import SoftwareObject
-
-
-class Categories:
-    category_list = []
-
-    def __init__(self, parent, combobox, scan):
-        self.parent = parent
-        self.combobox = combobox
-        # Add category to root
-        if not scan:
-            parent.insert(5, etree.Element("Categories"))
-        self.categories = parent.find('Categories')
-
-    @classmethod
-    def add(cls, parent, combobox, scan=False):
-        return cls(parent, combobox, scan)
-
-    @classmethod
-    def clear_inventory(cls):
-
-        cls.category_list.clear()
-
-    @classmethod
-    def find_category(cls, name):
-        """ Takes str name
-            Compares the instance variable name of each category in the class list category_list
-            Returns the category that makes the comparison true.
-        """
-        for category in cls.category_list:
-            if category.name == name:
-                return category
-
-    def delete(self):
-        """ Deletes categories
-            Clears combobox and class list category_list
-            Removes categories from self.parent """
-
-        self.combobox.clear()
-        self.category_list.clear()
-        self.parent.remove(self.categories)
-
-    def scan_category(self, name):
-        """ Takes str name
-            Adds name to self.combobox
-            Creates a Category object of Name name
-            Appends category object to category_list """
-
-        self.combobox.addItem(name)
-        category = Category.add(self.categories, name)
-        self.category_list.append(category)
-
-    def add_category(self, name):
-        if not any(category.attrib["Name"] == name for category in self.categories):
-            category = Category.add(self.categories, name)
-            self.combobox.addItem(name)
-            self.category_list.append(category)
-
-    def delete_category(self, category):
-        self.category_list.remove(category)
-        category.delete(self.combobox)
-
-        category_element = Category.inventory[category]
-        self.categories.remove(category_element)
-
+from Dependency import Dependency
+from SoftwareCategory import SoftwareCategory
 
 class Category(SoftwareObject):
     line_tags = [
@@ -76,30 +13,24 @@ class Category(SoftwareObject):
         'NameGenerator'
     ]
 
-    def __init__(self, parent, name, scan):
-        SoftwareObject.__init__(self, parent, name)
-        if self not in self.inventory:
-            self.inventory[self] = name
-        if not scan:
-            self.create_category(name)
+    check_tags = [
+        'Unlock'
+        'NameGenerator'
+    ]
 
-    @classmethod
-    def add(cls, parent, name, scan=False):
-        return cls(parent, name, scan)
+    def __init__(self, parent, name, combobox, scan=False):
+        SoftwareObject.__init__(self, parent, name, combobox)
+        if scan:
+            self.instantiate_object()
 
-    def create_category(self, name):
-        category = etree.SubElement(self.parent, "Category", Name=name)
-        self.inventory[self] = category
-        self.set_tags(category)
-
-    def set_tags(self, element):
-        for field in self.line_tags:
-            etree.SubElement(element, field)
-            self.set_etree_element_text()
+        else:
+            if not any(element.attrib['Name']== self.name for element in self.parent):
+                self.create_element('category')
 
 
 class Feature(SoftwareObject):
     line_tags = [
+        'Category',
         'Description',
         'Unlock',
         'DevTime',
@@ -110,56 +41,47 @@ class Feature(SoftwareObject):
         'Server'
     ]
 
-    def __init__(self, features, name, combobox):
-        self.combobox = combobox
-        SoftwareObject.__init__(self, features, name)
+    check_tags = [
+        'Server',
+        'Unlock',
+        'Category'
+    ]
+
+    def __init__(self, features, name, combobox, scan=False):
+        SoftwareObject.__init__(self, features, name, combobox)
         self.dependencies = {}
-        self.check_inventory()
-        self.check_parent()
+        self.software_categories = {}
+        if scan:
+            self.instantiate_object()
 
-    @classmethod
-    def add(cls, features, name, combobox):
-        feature = cls(features, name, combobox)
-        return feature
-
-    def find_feature(self):
-        """ Returns an etree element ('Feature') in the instance variable of parent
-            (In this case a etree element called 'Features')
-            with a 'Name' tag text equal to the instance variable name """
-
-        for feature in self.parent:
-            if feature.find('Name').text == self.name:
-                return feature
-
-    def check_inventory(self):
-        if not any(feature.name == self.name for feature in self.inventory):
-            feature = self.find_feature()
-            self.inventory[self] = feature
-            self.combobox.addItem(self.name)
-
-    def check_parent(self):
-        if not any(feature.find("Name").text == self.name for feature in self.parent):
-            self.create_feature()
-
-    def create_feature(self):
-        """ Creates a 'Feature' etree Element  """
-
-        feature = etree.SubElement(self.parent, "Feature")
-        etree.SubElement(feature, "Name").text = self.name
-        for tag in self.line_tags:
-            etree.SubElement(feature, tag).text = tag
+        else:
+            if not any(element.find("Name").text == self.name for element in self.parent):
+                self.create_element('feature')
 
     def rename(self, name):
+        """
+        * Parameter: name (str)
+        * Set feature's (etree element) 'Name' tag text value to name
+        * Rename current feature_combobox item to name parameter.
+        """
+
         self.name = name
         feature = self.inventory[self]
         feature.find('Name').text = name
-        self.rename_on_combobox()
-
-    def rename_on_combobox(self):
+        # Renames on combobox
         index = self.combobox.currentIndex()
         self.combobox.setItemText(index, self.name)
 
     def check_attribute(self, attributes, from_text):
+        """
+        * Takes in parameter attributes (dict)
+        * Takes in from_text parameter (line_edit)
+        * Check each attribute in attributes
+        * If status is True, add attribute
+        * Text is 'TRUE' for all attributes except the 'From' attribute
+        * If status is False, delete attribute
+        """
+
         for attribute, status in attributes.items():
             text = from_text if attribute == 'From' else 'TRUE'
             if status:
@@ -168,48 +90,77 @@ class Feature(SoftwareObject):
                 self.delete_attribute(attribute)
 
     def add_attribute(self, attrib, text):
+        """
+        * Takes in attrib parameter (str)
+        * Takes in text parameter (str)
+        * Add attribute if it isn't in feature's attrib (list)
+        """
+
         feature = self.inventory[self]
         if attrib not in feature.attrib:
             feature.attrib[attrib] = text
 
     def delete_attribute(self, attrib):
+        """
+         * Take in attrib parameter (str)
+         * Remove attribute if it isn't in feature's attrib (list)
+         """
+
         feature = self.inventory[self]
         if attrib in feature.attrib:
             del feature.attrib[attrib]
 
-    def add_dependency(self, software, dep_feature):
-        if dep_feature not in self.dependencies:
+    def add_special_tag(self, tag_type, name, tag_descriptor, combobox):
+        """
+        * Takes in tag_type parameter (str)
+        * Takes in name parameter (str)
+        * Takes in tag_descriptor parameter
+        * Create a type_object (Software Category or Dependency Object)
+        * Store type_object in tag_list[tag_descriptor]
+        """
+
+        tag_list = self.software_categories if tag_type == 'sc' else self.dependencies
+        if tag_descriptor not in tag_list:
             feature = self.inventory[self]
-            dependency = Dependency(feature, software, dep_feature)
-            self.dependencies[dep_feature] = dependency
+            if tag_type == 'sc':
+                type_object = SoftwareCategory(feature, name, tag_descriptor)
+            else:
+                type_object = Dependency(feature, name, tag_descriptor)
 
-    def delete_dependency(self, dep_feature):
-        if any(dep.feature == dep_feature for dep in self.dependencies):
-            feature = self.inventory[self]
-            dependency = feature.dependencies[dep_feature]
-            Dependency.delete_dependency(feature, dependency.feature)
-            self.dependencies.pop(dep_feature)
+            tag_list[tag_descriptor] = type_object
 
+    def scan_special_tag(self, tag_type, name, tag_descriptor):
+        """
+        * Same as add_special tag, but meant for scanning.
+        * Always creates Dependency or Software Category object
+        * Passes scan as True to add method.
+        """
 
-class Dependency:
-    def __init__(self, parent, software, feature):
-        self.parent = parent
-        self.software = software
-        self.feature = feature
-        self.create_dependency()
+        tag_list = self.software_categories if tag_type == 'sc' else self.dependencies
+        feature = self.inventory[self]
+        if tag_type == 'sc':
+            type_object = SoftwareCategory(feature, name, tag_descriptor, True)
+        else:
+            type_object = Dependency(feature, name, tag_descriptor, True)
+        tag_list[tag_descriptor] = type_object
 
-    @classmethod
-    def delete_dependency(cls, parent, feature):
-        dependency = cls.find_dependency(parent, feature)
-        feature.dependencies.remove(dependency)
-        parent.remove(dependency)
+    def delete_special_tag(self, tag_type, tag_descriptor, combobox):
+        """
+        * Parameter: tag_type (str)
+        * Parameter: tag_descriptor (str)
+        * Delete object (Dependency or Software Category Object)
+        * depending on tag_type
+        * Pop tag_descriptor key in tag_dict
+        """
 
-    @classmethod
-    def find_dependency(cls, parent, feature):
-        for dependency in parent:
-            if dependency.text == feature:
-                return dependency
+        tag_dict = self.software_categories if tag_type == 'sc' else self.dependencies
+        feature = self.inventory[self]
 
-    def create_dependency(self):
-        etree.SubElement(self.parent, "Dependency", Software=self.software).text = self.feature
+        if tag_type == 'sc':
+            SoftwareCategory.delete_category(feature, tag_descriptor)
+        else:
+            Dependency.delete_dependency(feature, tag_descriptor)
 
+        tag_dict.pop(tag_descriptor)
+        current_index = combobox.currentIndex()
+        combobox.removeItem(current_index)
